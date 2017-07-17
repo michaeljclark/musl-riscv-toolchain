@@ -1,10 +1,29 @@
 #!/bin/bash
 
-set -e
+case "$1" in
+    rv32)
+	ARCH=riscv32
+	WITHARCH=--with-arch=rv32imafdc
+	;;
+    rv64)
+	ARCH=riscv64
+	WITHARCH=--with-arch=rv64imafdc
+	;;
+    i386)
+	ARCH=i386
+	WITHARCH=--with-arch-32=core2
+	;;
+    x86_64)
+	ARCH=x86_64
+	WITHARCH=--with-arch-64=core2
+	;;
+  *)
+    echo "Usage: $0 {rv32|rv64|i386|x86_64}"
+    exit 1
+esac
 
-ARCH=rv64imafdc
-PREFIX=/opt/riscv/toolchain-7.1.0
-
+bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
+bootstrap_version=2
 gmp_version=6.1.0
 mpfr_version=3.1.5
 mpc_version=1.0.3
@@ -14,11 +33,12 @@ binutils_version=2.28
 gcc_version=7.1.0
 musl_version=1.1.17-riscv-a2
 
-SINGLE=$(echo ${ARCH} | sed 's#rv\([1-9]*\).*#riscv\1#')
-TRIPLE=${SINGLE}-linux-musl
+PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
+TRIPLE=${ARCH}-linux-musl
 TEMP=`pwd`/build/temp-install
-SYSROOT=${PREFIX}/sysroot
+SYSROOT=${PREFIX}/${TARGET:=$TRIPLE}
 
+echo PREFIX=${PREFIX}
 echo ARCH=${ARCH}
 echo TRIPLE=${TRIPLE}
 echo PREFIX=${PREFIX}
@@ -42,6 +62,7 @@ test -f stamps/lib-gmp || (
   CFLAGS=-fPIE ./configure --disable-shared --prefix=${TEMP}
   make -j8 && make install
 ) && touch stamps/lib-gmp
+test "$?" -eq "0" || exit 1
 
 # build mpfr
 test -f stamps/lib-mpfr || (
@@ -58,6 +79,7 @@ test -f stamps/lib-mpfr || (
       --with-gmp=${TEMP}
   make -j8 && make install
 ) && touch stamps/lib-mpfr
+test "$?" -eq "0" || exit 1
 
 # build mpc
 test -f stamps/lib-mpc || (
@@ -75,6 +97,7 @@ test -f stamps/lib-mpc || (
       --with-mpfr=${TEMP}
   make -j8 && make install
 ) && touch stamps/lib-mpc
+test "$?" -eq "0" || exit 1
 
 # build isl
 test -f stamps/lib-isl || (
@@ -91,6 +114,7 @@ test -f stamps/lib-isl || (
       --with-gmp-prefix=${TEMP}
   make -j8 && make install
 ) && touch stamps/lib-isl
+test "$?" -eq "0" || exit 1
 
 # build cloog
 test -f stamps/lib-cloog || (
@@ -108,6 +132,7 @@ test -f stamps/lib-cloog || (
       --with-gmp-prefix=${TEMP}
   make -j8 && make install
 ) && touch stamps/lib-cloog
+test "$?" -eq "0" || exit 1
 
 # build binutils
 test -f stamps/binutils || (
@@ -120,8 +145,7 @@ test -f stamps/binutils || (
   cd build/binutils-${binutils_version}
   CFLAGS=-fPIE ./configure \
         --prefix=${PREFIX} \
-        --target=${TRIPLE} \
-	--with-arch=${ARCH} \
+        --target=${TARGET:=$TRIPLE} ${WITHARCH} \
         --program-transform-name='s&^&'${TRIPLE}'-&' \
 	--with-sysroot=${SYSROOT} \
 	--disable-nls \
@@ -136,6 +160,7 @@ test -f stamps/binutils || (
         --with-cloog=${TEMP}
   make -j8 && make install
 ) && touch stamps/binutils
+test "$?" -eq "0" || exit 1
 
 # musl headers
 test -f stamps/musl-headers || (
@@ -146,14 +171,18 @@ test -f stamps/musl-headers || (
   test -d build/musl-riscv-${musl_version} || \
       tar -C build -xzf archives/musl-riscv-${musl_version}.tar.gz
   cd build/musl-riscv-${musl_version}
-  echo prefix=/usr > config.mak
-  echo exec_prefix=/usr >> config.mak
-  echo ARCH=${SINGLE} >> config.mak
+  echo prefix= > config.mak
+  echo exec_prefix= >> config.mak
+  echo ARCH=${ARCH} >> config.mak
   echo CC=${PREFIX}/bin/${TRIPLE}-gcc >> config.mak
   echo AS=${PREFIX}/bin/${TRIPLE}-as >> config.mak
   echo LD=${PREFIX}/bin/${TRIPLE}-ld >> config.mak
   make DESTDIR=${SYSROOT} install-headers
+  mkdir -p ${SYSROOT}/usr
+  ln -s ../lib ${SYSROOT}/usr/lib
+  ln -s ../include ${SYSROOT}/usr/include
 ) && touch stamps/musl-headers
+test "$?" -eq "0" || exit 1
 
 # build gcc stage1
 test -f stamps/gcc-stage1 || (
@@ -168,8 +197,7 @@ test -f stamps/gcc-stage1 || (
   cd output
   CFLAGS=-fPIE ../configure \
 	--prefix=${PREFIX} \
-        --target=${TRIPLE} \
-	--with-arch=${ARCH} \
+        --target=${TARGET:=$TRIPLE} ${WITHARCH} \
 	--program-transform-name='s&^&'${TRIPLE}'-&' \
 	--with-sysroot=${SYSROOT} \
 	--with-gnu-as \
@@ -185,6 +213,9 @@ test -f stamps/gcc-stage1 || (
 	--disable-tls \
 	--disable-libstdc__-v3 \
 	--disable-libquadmath \
+	--disable-libsanitizer \
+	--disable-libvtv \
+	--disable-libmpx \
 	--disable-multilib \
 	--disable-zlib \
 	--disable-libssp \
@@ -203,6 +234,7 @@ test -f stamps/gcc-stage1 || (
         --with-cloog=${TEMP}
   make -j8 all && make install
 ) && touch stamps/gcc-stage1
+test "$?" -eq "0" || exit 1
 
 # build musl static
 test -f stamps/musl-static || (
@@ -211,6 +243,68 @@ test -f stamps/musl-static || (
   make -j8 lib/libc.a CFLAGS=-fPIE
   make DESTDIR=${SYSROOT} SHARED_LIBS= install-libs
 ) && touch stamps/musl-static
+test "$?" -eq "0" || exit 1
+
+# build stage2 gcc
+test -f stamps/gcc-stage2 || (
+  set -e
+  test -f archives/gcc-${gcc_version}.tar.bz2 || \
+      curl -o archives/gcc-${gcc_version}.tar.bz2 \
+      http://ftp.gnu.org/gnu/gcc/gcc-${gcc_version}/gcc-${gcc_version}.tar.bz2
+  test -d build/gcc-${gcc_version} || \
+      tar -C build -xjf archives/gcc-${gcc_version}.tar.bz2
+  cd build/gcc-${gcc_version}
+  test -d output || mkdir output
+  cd output
+  CFLAGS=-fPIE ../configure \
+	--prefix=${PREFIX} \
+        --target=${TARGET:=$TRIPLE} ${WITHARCH} \
+	--program-transform-name='s&^&'${TRIPLE}'-&' \
+	--with-sysroot=${SYSROOT} \
+	--with-gnu-as \
+	--with-gnu-ld \
+	--enable-languages=c,c++ \
+	--enable-target-optspace \
+	--enable-cloog-backend=isl \
+	--enable-initfini-array \
+	--enable-shared \
+	--enable-threads \
+	--enable-tls \
+	--enable-libgcc \
+	--disable-libatomic \
+	--disable-libstdc__-v3 \
+	--disable-libquadmath \
+	--disable-libsanitizer \
+	--disable-libvtv \
+	--disable-libmpx \
+	--disable-multilib \
+	--disable-zlib \
+	--disable-libssp \
+	--disable-libmudflap \
+	--disable-libgomp \
+	--disable-libitm \
+	--disable-nls \
+	--disable-plugins \
+	--disable-sjlj-exceptions \
+	--disable-bootstrap \
+        --disable-isl-version-check \
+	--with-gmp=${TEMP} \
+	--with-mpfr=${TEMP} \
+	--with-mpc=${TEMP} \
+	--with-isl=${TEMP} \
+        --with-cloog=${TEMP}
+  make -j8 all && make install
+) && touch stamps/gcc-stage2
+test "$?" -eq "0" || exit 1
+
+# build musl dynamic
+test -f stamps/musl-dynamic || (
+  set -e
+  cd build/musl-riscv-${musl_version}
+  make -j8
+  make DESTDIR=${SYSROOT} install-libs
+) && touch stamps/musl-dynamic
+test "$?" -eq "0" || exit 1
 
 # build final gcc
 test -f stamps/gcc-final || (
@@ -225,8 +319,7 @@ test -f stamps/gcc-final || (
   cd output
   CFLAGS=-fPIE ../configure \
 	--prefix=${PREFIX} \
-        --target=${TRIPLE} \
-	--with-arch=${ARCH} \
+        --target=${TARGET:=$TRIPLE} ${WITHARCH} \
 	--program-transform-name='s&^&'${TRIPLE}'-&' \
 	--with-sysroot=${SYSROOT} \
 	--with-gnu-as \
@@ -237,11 +330,14 @@ test -f stamps/gcc-final || (
 	--enable-initfini-array \
 	--enable-shared \
 	--enable-threads \
+	--enable-tls \
 	--enable-libgcc \
 	--enable-libatomic \
-	--enable-tls \
 	--enable-libstdc__-v3 \
-	--enable-libquadmath \
+	--disable-libquadmath \
+	--disable-libsanitizer \
+	--disable-libvtv \
+	--disable-libmpx \
 	--disable-multilib \
 	--disable-zlib \
 	--disable-libssp \
@@ -260,11 +356,4 @@ test -f stamps/gcc-final || (
         --with-cloog=${TEMP}
   make -j8 all && make install
 ) && touch stamps/gcc-final
-
-# build musl dynamic
-test -f stamps/musl-dynamic || (
-  set -e
-  cd build/musl-riscv-${musl_version}
-  make -j8
-  make DESTDIR=${SYSROOT} install-libs
-) && touch stamps/musl-dynamic
+test "$?" -eq "0" || exit 1
