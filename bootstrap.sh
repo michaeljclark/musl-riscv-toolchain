@@ -17,8 +17,12 @@ case "$1" in
 	ARCH=x86_64
 	WITHARCH=--with-arch-64=core2
 	;;
+    aarch64)
+	ARCH=aarch64
+	WITHARCH=--with-arch=armv8-a
+	;;
   *)
-    echo "Usage: $0 {rv32|rv64|i386|x86_64}"
+    echo "Usage: $0 {rv32|rv64|i386|x86_64|aarch64}"
     exit 1
 esac
 
@@ -153,6 +157,7 @@ test -f stamps/binutils || (
 	--disable-shared \
 	--disable-werror  \
         --disable-isl-version-check \
+        --disable-multilib \
         --with-gmp=${TEMP} \
         --with-mpfr=${TEMP} \
         --with-mpc=${TEMP} \
