@@ -1,0 +1,188 @@
+--- gcc/config/riscv/riscv.c.orig	2017-03-21 05:43:21.000000000 +1300
++++ gcc/config/riscv/riscv.c	2017-08-01 09:48:52.456003115 +1200
+@@ -2762,7 +2762,8 @@
+    'C'	Print the integer branch condition for comparison OP.
+    'A'	Print the atomic operation suffix for memory model OP.
+    'F'	Print a FENCE if the memory model requires a release.
+-   'z'	Print x0 if OP is zero, otherwise print OP normally.  */
++   'z'	Print x0 if OP is zero, otherwise print OP normally.
++   'i'	Print i if the operand is not a register. */
+ 
+ static void
+ riscv_print_operand (FILE *file, rtx op, int letter)
+@@ -2797,6 +2798,11 @@
+ 	fputs ("fence iorw,ow; ", file);
+       break;
+ 
++    case 'i':
++      if (code != REG)
++        fputs ("i", file);
++      break;
++
+     default:
+       switch (code)
+ 	{
+--- gcc/config/riscv/riscv.md.orig	2017-02-07 10:38:37.000000000 +1300
++++ gcc/config/riscv/riscv.md	2017-08-01 09:48:52.460003082 +1200
+@@ -411,7 +411,7 @@
+ 	(plus:SI (match_operand:SI 1 "register_operand" "r,r")
+ 		  (match_operand:SI 2 "arith_operand" "r,I")))]
+   ""
+-  { return TARGET_64BIT ? "addw\t%0,%1,%2" : "add\t%0,%1,%2"; }
++  { return TARGET_64BIT ? "add%i2w\t%0,%1,%2" : "add%i2\t%0,%1,%2"; }
+   [(set_attr "type" "arith")
+    (set_attr "mode" "SI")])
+ 
+@@ -420,7 +420,7 @@
+ 	(plus:DI (match_operand:DI 1 "register_operand" "r,r")
+ 		  (match_operand:DI 2 "arith_operand" "r,I")))]
+   "TARGET_64BIT"
+-  "add\t%0,%1,%2"
++  "add%i2\t%0,%1,%2"
+   [(set_attr "type" "arith")
+    (set_attr "mode" "DI")])
+ 
+@@ -430,7 +430,7 @@
+ 	     (plus:SI (match_operand:SI 1 "register_operand" "r,r")
+ 		      (match_operand:SI 2 "arith_operand" "r,I"))))]
+   "TARGET_64BIT"
+-  "addw\t%0,%1,%2"
++  "add%i2w\t%0,%1,%2"
+   [(set_attr "type" "arith")
+    (set_attr "mode" "SI")])
+ 
+@@ -441,7 +441,7 @@
+ 			      (match_operand:DI 2 "arith_operand" "r,I"))
+ 		     0)))]
+   "TARGET_64BIT"
+-  "addw\t%0,%1,%2"
++  "add%i2w\t%0,%1,%2"
+   [(set_attr "type" "arith")
+    (set_attr "mode" "SI")])
+ 
+@@ -702,7 +702,7 @@
+ 	(any_div:SI (match_operand:SI 1 "register_operand" "r")
+ 		    (match_operand:SI 2 "register_operand" "r")))]
+   "TARGET_DIV"
+-  { return TARGET_64BIT ? "<insn>w\t%0,%1,%2" : "<insn>\t%0,%1,%2"; }
++  { return TARGET_64BIT ? "<insn>%i2w\t%0,%1,%2" : "<insn>%i2\t%0,%1,%2"; }
+   [(set_attr "type" "idiv")
+    (set_attr "mode" "SI")])
+ 
+@@ -711,7 +711,7 @@
+ 	(any_div:DI (match_operand:DI 1 "register_operand" "r")
+ 		    (match_operand:DI 2 "register_operand" "r")))]
+   "TARGET_DIV && TARGET_64BIT"
+-  "<insn>\t%0,%1,%2"
++  "<insn>%i2\t%0,%1,%2"
+   [(set_attr "type" "idiv")
+    (set_attr "mode" "DI")])
+ 
+@@ -721,7 +721,7 @@
+ 	    (any_div:SI (match_operand:SI 1 "register_operand" "r")
+ 			(match_operand:SI 2 "register_operand" "r"))))]
+   "TARGET_DIV && TARGET_64BIT"
+-  "<insn>w\t%0,%1,%2"
++  "<insn>%i2w\t%0,%1,%2"
+   [(set_attr "type" "idiv")
+    (set_attr "mode" "DI")])
+ 
+@@ -927,7 +927,7 @@
+ 	(any_bitwise:X (match_operand:X 1 "register_operand" "%r,r")
+ 		       (match_operand:X 2 "arith_operand" "r,I")))]
+   ""
+-  "<insn>\t%0,%1,%2"
++  "<insn>%i2\t%0,%1,%2"
+   [(set_attr "type" "logical")
+    (set_attr "mode" "<MODE>")])
+ 
+@@ -936,7 +936,7 @@
+ 	(any_bitwise:SI (match_operand:SI 1 "register_operand" "%r,r")
+ 			(match_operand:SI 2 "arith_operand" "r,I")))]
+   "TARGET_64BIT"
+-  "<insn>\t%0,%1,%2"
++  "<insn>%i2\t%0,%1,%2"
+   [(set_attr "type" "logical")
+    (set_attr "mode" "SI")])
+ 
+@@ -1021,7 +1021,7 @@
+ 	     (match_operand:QI 1 "nonimmediate_operand" "r,m")))]
+   ""
+   "@
+-   and\t%0,%1,0xff
++   andi\t%0,%1,0xff
+    lbu\t%0,%1"
+   [(set_attr "move_type" "andi,load")
+    (set_attr "mode" "<SUPERQI:MODE>")])
+@@ -1301,7 +1301,7 @@
+ 	(plus:HI (match_operand:HISI 1 "register_operand" "r,r")
+ 		  (match_operand:HISI 2 "arith_operand" "r,I")))]
+   ""
+-  { return TARGET_64BIT ? "addw\t%0,%1,%2" : "add\t%0,%1,%2"; }
++  { return TARGET_64BIT ? "add%i2w\t%0,%1,%2" : "add%i2\t%0,%1,%2"; }
+   [(set_attr "type" "arith")
+    (set_attr "mode" "HI")])
+ 
+@@ -1310,7 +1310,7 @@
+ 	(xor:HI (match_operand:HISI 1 "register_operand" "r,r")
+ 		  (match_operand:HISI 2 "arith_operand" "r,I")))]
+   ""
+-  "xor\t%0,%1,%2"
++  "xor%i2\t%0,%1,%2"
+   [(set_attr "type" "logical")
+    (set_attr "mode" "HI")])
+ 
+@@ -1457,7 +1457,7 @@
+     operands[2] = GEN_INT (INTVAL (operands[2])
+ 			   & (GET_MODE_BITSIZE (SImode) - 1));
+ 
+-  return TARGET_64BIT ? "<insn>w\t%0,%1,%2" : "<insn>\t%0,%1,%2";
++  return TARGET_64BIT ? "<insn>%i2w\t%0,%1,%2" : "<insn>%i2\t%0,%1,%2";
+ }
+   [(set_attr "type" "shift")
+    (set_attr "mode" "SI")])
+@@ -1472,7 +1472,7 @@
+     operands[2] = GEN_INT (INTVAL (operands[2])
+ 			   & (GET_MODE_BITSIZE (DImode) - 1));
+ 
+-  return "<insn>\t%0,%1,%2";
++  return "<insn>%i2\t%0,%1,%2";
+ }
+   [(set_attr "type" "shift")
+    (set_attr "mode" "DI")])
+@@ -1487,7 +1487,7 @@
+   if (GET_CODE (operands[2]) == CONST_INT)
+     operands[2] = GEN_INT (INTVAL (operands[2]) & 0x1f);
+ 
+-  return "<insn>w\t%0,%1,%2";
++  return "<insn>%i2w\t%0,%1,%2";
+ }
+   [(set_attr "type" "shift")
+    (set_attr "mode" "SI")])
+@@ -1706,7 +1706,7 @@
+ 	(any_ge:GPR (match_operand:X 1 "register_operand" "r")
+ 		    (const_int 1)))]
+   ""
+-  "slt<u>\t%0,zero,%1"
++  "slt%i2<u>\t%0,zero,%1"
+   [(set_attr "type" "slt")
+    (set_attr "mode" "<MODE>")])
+ 
+@@ -1715,7 +1715,7 @@
+ 	(any_lt:GPR (match_operand:X 1 "register_operand" "r")
+ 		    (match_operand:X 2 "arith_operand" "rI")))]
+   ""
+-  "slt<u>\t%0,%1,%2"
++  "slt%i2<u>\t%0,%1,%2"
+   [(set_attr "type" "slt")
+    (set_attr "mode" "<MODE>")])
+ 
+@@ -1726,7 +1726,7 @@
+   ""
+ {
+   operands[2] = GEN_INT (INTVAL (operands[2]) + 1);
+-  return "slt<u>\t%0,%1,%2";
++  return "slt%i2<u>\t%0,%1,%2";
+ }
+   [(set_attr "type" "slt")
+    (set_attr "mode" "<MODE>")])

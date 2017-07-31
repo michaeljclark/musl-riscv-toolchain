@@ -198,6 +198,10 @@ test -f stamps/gcc-stage1 || (
   test -d build/gcc-${gcc_version} || \
       tar -C build -xjf archives/gcc-${gcc_version}.tar.bz2
   cd build/gcc-${gcc_version}
+  test -f ../../stamps/gcc-patch || (
+    patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
+    touch ../../stamps/gcc-patch
+  )
   test -d output || mkdir output
   cd output
   CFLAGS=-fPIE ../configure \
