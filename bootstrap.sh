@@ -35,7 +35,7 @@ isl_version=0.16.1
 cloog_version=0.18.4
 binutils_version=2.28
 gcc_version=7.1.0
-musl_version=1.1.17-riscv-a2
+musl_version=1.1.17-riscv-a3
 
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
 TRIPLE=${ARCH}-linux-musl
