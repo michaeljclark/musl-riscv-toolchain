@@ -176,6 +176,10 @@ test -f stamps/musl-headers || (
   test -d build/musl-riscv-${musl_version} || \
       tar -C build -xzf archives/musl-riscv-${musl_version}.tar.gz
   cd build/musl-riscv-${musl_version}
+  test -f ../../stamps/musl-patch || (
+    patch -p0 < ../../patches/musl-stdbool-cpluscplus.patch
+    touch ../../stamps/musl-patch
+  )
   echo prefix= > config.mak
   echo exec_prefix= >> config.mak
   echo ARCH=${ARCH} >> config.mak

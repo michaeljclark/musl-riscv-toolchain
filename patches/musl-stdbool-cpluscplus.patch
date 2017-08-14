@@ -1,0 +1,13 @@
+--- ./include/stdbool.h.orig	2017-08-14 22:33:01.252143740 +0000
++++ ./include/stdbool.h	2017-08-14 22:32:53.651967604 +0000
+@@ -7,6 +7,10 @@
+ #define false 0
+ #define bool _Bool
+ 
++#else
++
++#define _Bool bool
++
+ #endif
+ 
+ #define __bool_true_false_are_defined 1
