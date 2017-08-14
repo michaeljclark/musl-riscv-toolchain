@@ -27,14 +27,14 @@ case "$1" in
 esac
 
 bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
-bootstrap_version=3
+bootstrap_version=1
 gmp_version=6.1.0
 mpfr_version=3.1.5
 mpc_version=1.0.3
 isl_version=0.16.1
 cloog_version=0.18.4
 binutils_version=2.28
-gcc_version=7.1.0
+gcc_version=7.2.0
 musl_version=1.1.17-riscv-a3
 
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
@@ -196,11 +196,11 @@ test "$?" -eq "0" || exit 1
 # build gcc stage1
 test -f stamps/gcc-stage1 || (
   set -e
-  test -f archives/gcc-${gcc_version}.tar.bz2 || \
-      curl -o archives/gcc-${gcc_version}.tar.bz2 \
-      http://ftp.gnu.org/gnu/gcc/gcc-${gcc_version}/gcc-${gcc_version}.tar.bz2
+  test -f archives/gcc-${gcc_version}.tar.xz || \
+      curl -o archives/gcc-${gcc_version}.tar.xz \
+      http://ftp.gnu.org/gnu/gcc/gcc-${gcc_version}/gcc-${gcc_version}.tar.xz
   test -d build/gcc-${gcc_version} || \
-      tar -C build -xjf archives/gcc-${gcc_version}.tar.bz2
+      tar -C build -xJf archives/gcc-${gcc_version}.tar.xz
   cd build/gcc-${gcc_version}
   test -f ../../stamps/gcc-patch || (
     patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
