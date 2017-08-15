@@ -204,6 +204,7 @@ test -f stamps/gcc-stage1 || (
   cd build/gcc-${gcc_version}
   test -f ../../stamps/gcc-patch || (
     patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
+    patch -p1 < ../../patches/gcc-7.1-static-print.patch
     touch ../../stamps/gcc-patch
   )
   test -d output || mkdir output
