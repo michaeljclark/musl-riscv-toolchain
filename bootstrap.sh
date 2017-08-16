@@ -48,7 +48,6 @@ TRIPLE=${ARCH}-linux-musl
 TEMP=`pwd`/build/temp-install
 SYSROOT=${PREFIX}/${TARGET:=$TRIPLE}
 
-echo PREFIX=${PREFIX}
 echo ARCH=${ARCH}
 echo TRIPLE=${TRIPLE}
 echo PREFIX=${PREFIX}
