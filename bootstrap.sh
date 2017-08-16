@@ -3,22 +3,27 @@
 case "$1" in
     rv32)
 	ARCH=riscv32
+	LINUX_ARCH=riscv
 	WITHARCH=--with-arch=rv32imafdc
 	;;
     rv64)
 	ARCH=riscv64
+	LINUX_ARCH=riscv
 	WITHARCH=--with-arch=rv64imafdc
 	;;
     i386)
 	ARCH=i386
+	LINUX_ARCH=x86
 	WITHARCH=--with-arch-32=core2
 	;;
     x86_64)
 	ARCH=x86_64
+	LINUX_ARCH=x86
 	WITHARCH=--with-arch-64=core2
 	;;
     aarch64)
 	ARCH=aarch64
+	LINUX_ARCH=arm64
 	WITHARCH=--with-arch=armv8-a
 	;;
   *)
@@ -36,6 +41,7 @@ cloog_version=0.18.4
 binutils_version=2.28
 gcc_version=7.2.0
 musl_version=1.1.17-riscv-a3
+linux_version=4.12-v7_0
 
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
 TRIPLE=${ARCH}-linux-musl
@@ -188,9 +194,25 @@ test -f stamps/musl-headers || (
   echo LD=${PREFIX}/bin/${TRIPLE}-ld >> config.mak
   make DESTDIR=${SYSROOT} install-headers
   mkdir -p ${SYSROOT}/usr
-  ln -s ../lib ${SYSROOT}/usr/lib
-  ln -s ../include ${SYSROOT}/usr/include
+  test -L ${SYSROOT}/usr/lib || ln -s ../lib ${SYSROOT}/usr/lib
+  test -L ${SYSROOT}/usr/include || ln -s ../include ${SYSROOT}/usr/include
 ) && touch stamps/musl-headers
+test "$?" -eq "0" || exit 1
+
+# linux headers
+test -f stamps/linux-headers || (
+  set -e
+  test -f archives/linux-riscv-${linux_version}.tar.gz || \
+      curl -L -o archives/linux-riscv-${linux_version}.tar.gz \
+      https://github.com/rv8-io/riscv-linux/archive/linux-riscv-${linux_version}.tar.gz
+  test -d build/riscv-linux-linux-riscv-${linux_version} || \
+      tar -C build -xzf archives/linux-riscv-${linux_version}.tar.gz
+  mkdir -p build/linux-headers/staged
+  ( cd build/riscv-linux-linux-riscv-${linux_version} && \
+      make ARCH=${LINUX_ARCH} O=../linux-headers INSTALL_HDR_PATH=../linux-headers/staged headers_install )
+  find build/linux-headers/staged/include '(' -name .install -o -name ..install.cmd ')' -exec rm {} +
+  rsync -a build/linux-headers/staged/include/ ${SYSROOT}/usr/include/
+) && touch stamps/linux-headers
 test "$?" -eq "0" || exit 1
 
 # build gcc stage1
