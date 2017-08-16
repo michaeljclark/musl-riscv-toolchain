@@ -224,6 +224,7 @@ test -f stamps/gcc-stage1 || (
       tar -C build -xJf archives/gcc-${gcc_version}.tar.xz
   cd build/gcc-${gcc_version}
   test -f ../../stamps/gcc-patch || (
+    patch -p0 < ../../patches/gcc-7.2-slow-byte-access.patch
     patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
     patch -p1 < ../../patches/gcc-7.1-static-print.patch
     touch ../../stamps/gcc-patch
