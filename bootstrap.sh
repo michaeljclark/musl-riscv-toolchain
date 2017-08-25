@@ -214,8 +214,8 @@ test -f stamps/linux-headers || (
 ) && touch stamps/linux-headers
 test "$?" -eq "0" || exit 1
 
-# build gcc stage1
-test -f stamps/gcc-stage1 || (
+# patch gcc
+test -f stamps/gcc-patch || (
   set -e
   test -f archives/gcc-${gcc_version}.tar.xz || \
       curl -o archives/gcc-${gcc_version}.tar.xz \
@@ -223,14 +223,19 @@ test -f stamps/gcc-stage1 || (
   test -d build/gcc-${gcc_version} || \
       tar -C build -xJf archives/gcc-${gcc_version}.tar.xz
   cd build/gcc-${gcc_version}
-  test -f ../../stamps/gcc-patch || (
-    patch -p0 < ../../patches/gcc-7.2-slow-byte-access.patch
-    patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
-    patch -p1 < ../../patches/gcc-7.1-static-print.patch
-    touch ../../stamps/gcc-patch
-  )
-  test -d output || mkdir output
-  cd output
+  patch -p0 < ../../patches/gcc-7.2-slow-byte-access.patch
+  patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
+  patch -p1 < ../../patches/gcc-7.1-static-print.patch
+  touch ../../stamps/gcc-patch
+) && touch stamps/gcc-patch
+test "$?" -eq "0" || exit 1
+
+# build gcc stage1a - musl static compiler
+test -f stamps/gcc-stage1a || (
+  set -e
+  cd build/gcc-${gcc_version}
+  test -d output-stage1 || mkdir output-stage1
+  cd output-stage1
   CFLAGS=-fPIE ../configure \
 	--prefix=${PREFIX} \
         --target=${TARGET:=$TRIPLE} ${WITHARCH} \
@@ -269,7 +274,7 @@ test -f stamps/gcc-stage1 || (
 	--with-isl=${TEMP} \
         --with-cloog=${TEMP}
   make -j8 all && make install
-) && touch stamps/gcc-stage1
+) && touch stamps/gcc-stage1a
 test "$?" -eq "0" || exit 1
 
 # build musl static
@@ -281,17 +286,12 @@ test -f stamps/musl-static || (
 ) && touch stamps/musl-static
 test "$?" -eq "0" || exit 1
 
-# build stage2 gcc
-test -f stamps/gcc-stage2 || (
+# build stage1b gcc - musl dynamic compiler
+test -f stamps/gcc-stage1b || (
   set -e
-  test -f archives/gcc-${gcc_version}.tar.bz2 || \
-      curl -o archives/gcc-${gcc_version}.tar.bz2 \
-      http://ftp.gnu.org/gnu/gcc/gcc-${gcc_version}/gcc-${gcc_version}.tar.bz2
-  test -d build/gcc-${gcc_version} || \
-      tar -C build -xjf archives/gcc-${gcc_version}.tar.bz2
   cd build/gcc-${gcc_version}
-  test -d output || mkdir output
-  cd output
+  test -d output-stage1 || mkdir output-stage1
+  cd output-stage1
   CFLAGS=-fPIE ../configure \
 	--prefix=${PREFIX} \
         --target=${TARGET:=$TRIPLE} ${WITHARCH} \
@@ -330,7 +330,7 @@ test -f stamps/gcc-stage2 || (
 	--with-isl=${TEMP} \
         --with-cloog=${TEMP}
   make -j8 all && make install
-) && touch stamps/gcc-stage2
+) && touch stamps/gcc-stage1b
 test "$?" -eq "0" || exit 1
 
 # build musl dynamic
@@ -345,14 +345,9 @@ test "$?" -eq "0" || exit 1
 # build final gcc
 test -f stamps/gcc-final || (
   set -e
-  test -f archives/gcc-${gcc_version}.tar.bz2 || \
-      curl -o archives/gcc-${gcc_version}.tar.bz2 \
-      http://ftp.gnu.org/gnu/gcc/gcc-${gcc_version}/gcc-${gcc_version}.tar.bz2
-  test -d build/gcc-${gcc_version} || \
-      tar -C build -xjf archives/gcc-${gcc_version}.tar.bz2
   cd build/gcc-${gcc_version}
-  test -d output || mkdir output
-  cd output
+  test -d output-final || mkdir output-final
+  cd output-final
   CFLAGS=-fPIE ../configure \
 	--prefix=${PREFIX} \
         --target=${TARGET:=$TRIPLE} ${WITHARCH} \
