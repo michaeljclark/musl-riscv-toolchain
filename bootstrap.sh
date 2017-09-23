@@ -32,7 +32,7 @@ case "$1" in
 esac
 
 bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
-bootstrap_version=2
+bootstrap_version=3
 gmp_version=6.1.0
 mpfr_version=3.1.5
 mpc_version=1.0.3
@@ -223,6 +223,7 @@ test -f stamps/gcc-patch || (
   test -d build/gcc-${gcc_version} || \
       tar -C build -xJf archives/gcc-${gcc_version}.tar.xz
   cd build/gcc-${gcc_version}
+  patch -p0 < ../../patches/gcc-7.2-musl-dynamic-linker.patch
   patch -p0 < ../../patches/gcc-7.2-slow-byte-access.patch
   patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
   patch -p1 < ../../patches/gcc-7.1-static-print.patch

@@ -1,0 +1,12 @@
+--- gcc/config/riscv/linux.h.orig	2017-09-24 11:20:57.628416804 +1300
++++ gcc/config/riscv/linux.h	2017-09-24 11:26:58.499429022 +1300
+@@ -24,6 +24,9 @@
+ 
+ #define GLIBC_DYNAMIC_LINKER "/lib/ld-linux-riscv" XLEN_SPEC "-" ABI_SPEC ".so.1"
+ 
++#undef MUSL_DYNAMIC_LINKER
++#define MUSL_DYNAMIC_LINKER "/lib/ld-musl-riscv" XLEN_SPEC "-" ABI_SPEC ".so.1"
++
+ /* Because RISC-V only has word-sized atomics, it requries libatomic where
+    others do not.  So link libatomic by default, as needed.  */
+ #undef LIB_SPEC
