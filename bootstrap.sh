@@ -40,7 +40,7 @@ isl_version=0.16.1
 cloog_version=0.18.4
 binutils_version=2.28
 gcc_version=7.2.0
-musl_version=1.1.17-riscv-a3
+musl_version=1.1.17-riscv-a4
 linux_version=4.12-v7_0
 
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
