@@ -32,7 +32,7 @@ case "$1" in
 esac
 
 bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
-bootstrap_version=4
+bootstrap_version=5
 gmp_version=6.1.0
 mpfr_version=3.1.6
 mpc_version=1.0.3
@@ -40,7 +40,7 @@ isl_version=0.16.1
 cloog_version=0.18.4
 binutils_version=2.28
 gcc_version=7.2.0
-musl_version=1.1.17-riscv-a4
+musl_version=1.1.17-riscv-a5
 linux_version=4.12-v7_0
 
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
