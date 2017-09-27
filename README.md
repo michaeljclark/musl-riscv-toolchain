@@ -13,7 +13,7 @@ The script automatically downloads approximately 120MiB of prerequisites:
 - isl-0.16.1.tar.bz2
 - mpc-1.0.3.tar.gz
 - mpfr-3.1.6.tar.bz2
-- musl-riscv-1.1.17-riscv-a3.tar.gz
+- musl-riscv-1.1.17-riscv-a5.tar.gz
 
 To build and install the toolchain run the following command:
 
@@ -23,10 +23,10 @@ sh bootstrap.sh rv64
 
 The script installs the toolchain to the following directory:
 
-- `/opt/riscv/musl-riscv-toolchain-7.2.0-1`
+- `/opt/riscv/musl-riscv-toolchain-7.2.0-5`
 
 Add the toolchain to your `PATH` environment variable
 
 ```
-export PATH=${PATH}:/opt/riscv/musl-riscv-toolchain-7.2.0-1/bin
+export PATH=${PATH}:/opt/riscv/musl-riscv-toolchain-7.2.0-5/bin
 ```
