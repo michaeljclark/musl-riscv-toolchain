@@ -21,13 +21,19 @@ case "$1" in
 	LINUX_ARCH=x86
 	WITHARCH=--with-arch-64=core2
 	;;
-    aarch64)
+    arm32)
+	ARCH=arm
+	LINUX_ARCH=arm
+	WITHARCH=--with-arch=armv7-a
+	SUFFIX=eabihf
+	;;
+    arm64)
 	ARCH=aarch64
 	LINUX_ARCH=arm64
 	WITHARCH=--with-arch=armv8-a
 	;;
   *)
-    echo "Usage: $0 {rv32|rv64|i386|x86_64|aarch64}"
+    echo "Usage: $0 {rv32|rv64|i386|x86_64|arm32|arm64}"
     exit 1
 esac
 
@@ -44,7 +50,7 @@ musl_version=1.1.17-riscv-a5
 linux_version=4.12-v7_0
 
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
-TRIPLE=${ARCH}-linux-musl
+TRIPLE=${ARCH}-linux-musl${SUFFIX}
 TEMP=`pwd`/build/temp-install
 SYSROOT=${PREFIX}/${TARGET:=$TRIPLE}
 
