@@ -24,7 +24,6 @@ sh bootstrap.sh rv64
 To build toolchains for riscv64, riscv32, x86_64, i386, aarch64 and arm:
 
 ```
-rm -fr build stamps
 for i in rv64 rv32 x86_64 i386 arm64 arm32; do sh bootstrap.sh $i ; rm -fr build stamps ; done
 ```
 
