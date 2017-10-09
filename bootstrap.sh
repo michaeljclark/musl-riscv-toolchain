@@ -232,7 +232,6 @@ test -f stamps/gcc-patch || (
   patch -p0 < ../../patches/gcc-7.2-musl-dynamic-linker.patch
   patch -p0 < ../../patches/gcc-7.2-slow-byte-access.patch
   patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
-  patch -p1 < ../../patches/gcc-7.1-static-print.patch
   touch ../../stamps/gcc-patch
 ) && touch stamps/gcc-patch
 test "$?" -eq "0" || exit 1
