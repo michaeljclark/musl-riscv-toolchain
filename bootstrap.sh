@@ -1,44 +1,82 @@
 #!/bin/bash
+#
+# ## musl-riscv-toolchain
+#
+# musl libc GCC cross compiler toolchain bootstrap script
+#
+# usage: ./bootstrap.sh <arch> [native-cross]
+#
+# This script by default builds cross compilers for the supported
+# target architectures. If the optional "native-cross" option is
+# given, then in addition to building a cross compiler for the
+# target, the script will use the target cross compiler to build
+# a native compiler for the target architecture linked with the
+# target architecture's musl C library. The native compiler is
+# installed into ${SYSROOT}/usr/bin
+#
+# ## Supported architectures:
+#
+# - riscv32
+# - riscv64
+# - i386
+# - x86_64
+# - arm
+# - aarch64
+#
+# ## Directory layout
+#
+# - ${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
+#   - bin/
+#     - {$triple}-{as,ld,gcc,g++,strip,objdump} # host binaries
+#   - ${triple}                                 # sysroot
+#     - include                                 # target headers
+#     - lib                                     # target libraries
+#     - usr
+#       - lib -> ../lib
+#       - bin
+#         - {as,ld,gcc,g++,strip,objdump}       # target binaries
+#
 
 case "$1" in
-    rv32)
-	ARCH=riscv32
-	LINUX_ARCH=riscv
-	WITHARCH=--with-arch=rv32imafdc
-	;;
-    rv64)
-	ARCH=riscv64
-	LINUX_ARCH=riscv
-	WITHARCH=--with-arch=rv64imafdc
-	;;
-    i386)
-	ARCH=i386
-	LINUX_ARCH=x86
-	WITHARCH=--with-arch-32=core2
-	;;
-    x86_64)
-	ARCH=x86_64
-	LINUX_ARCH=x86
-	WITHARCH=--with-arch-64=core2
-	;;
-    arm32)
-	ARCH=arm
-	LINUX_ARCH=arm
-	WITHARCH=--with-arch=armv7-a
-	SUFFIX=eabihf
-	;;
-    arm64)
-	ARCH=aarch64
-	LINUX_ARCH=arm64
-	WITHARCH=--with-arch=armv8-a
-	;;
+  riscv32)
+    ARCH=riscv32
+    LINUX_ARCH=riscv
+    WITHARCH=--with-arch=rv32imafdc
+    ;;
+  riscv64)
+    ARCH=riscv64
+    LINUX_ARCH=riscv
+    WITHARCH=--with-arch=rv64imafdc
+    ;;
+  i386)
+    ARCH=i386
+    LINUX_ARCH=x86
+    WITHARCH=--with-arch-32=core2
+    ;;
+  x86_64)
+    ARCH=x86_64
+    LINUX_ARCH=x86
+    WITHARCH=--with-arch-64=core2
+    ;;
+  arm)
+    ARCH=arm
+    LINUX_ARCH=arm
+    WITHARCH=--with-arch=armv7-a
+    SUFFIX=eabihf
+    ;;
+  aarch64)
+    ARCH=aarch64
+    LINUX_ARCH=arm64
+    WITHARCH=--with-arch=armv8-a
+    ;;
   *)
-    echo "Usage: $0 {rv32|rv64|i386|x86_64|arm32|arm64}"
+    echo "Usage: $0 {riscv32|riscv64|i386|x86_64|arm|aarch64}"
     exit 1
 esac
 
-bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
-bootstrap_version=5
+set -e
+
+# build dependency versions
 gmp_version=6.1.0
 mpfr_version=3.1.6
 mpc_version=1.0.3
@@ -49,348 +87,493 @@ gcc_version=7.2.0
 musl_version=1.1.17-riscv-a5
 linux_version=4.12-v7_0
 
+# bootstrap install prefix and version
+bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
+bootstrap_version=6
+
+# derived variables
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
 TRIPLE=${ARCH}-linux-musl${SUFFIX}
-TEMP=`pwd`/build/temp-install
 SYSROOT=${PREFIX}/${TARGET:=$TRIPLE}
+TOPDIR=$(pwd)
 
-echo ARCH=${ARCH}
-echo TRIPLE=${TRIPLE}
-echo PREFIX=${PREFIX}
+make_directories()
+{
+  test -d src || mkdir src
+  test -d build || mkdir build
+  test -d stamps || mkdir stamps
+  test -d archives || mkdir archives
+  test -d ${PREFIX} || mkdir -p ${PREFIX}
+}
 
-test -d stamps || mkdir stamps
-test -d archives || mkdir archives
-test -d ${PREFIX} || mkdir -p ${PREFIX}
-test -d ${TEMP} || mkdir -p ${TEMP}
-
-export CC=cc
-
-# build gmp
-test -f stamps/lib-gmp || (
-  set -e
+download_prerequisites()
+{
   test -f archives/gmp-${gmp_version}.tar.bz2 || \
       curl -o archives/gmp-${gmp_version}.tar.bz2 \
       ftp://ftp.gmplib.org/pub/gmp-${gmp_version}/gmp-${gmp_version}.tar.bz2
-  test -d build/gmp-${gmp_version} || \
-      tar -C build -xjf archives/gmp-${gmp_version}.tar.bz2
-  cd build/gmp-${gmp_version}
-  CFLAGS=-fPIE ./configure --disable-shared --prefix=${TEMP}
-  make -j8 && make install
-) && touch stamps/lib-gmp
-test "$?" -eq "0" || exit 1
-
-# build mpfr
-test -f stamps/lib-mpfr || (
-  set -e
   test -f archives/mpfr-${mpfr_version}.tar.bz2 || \
       curl -o archives/mpfr-${mpfr_version}.tar.bz2 \
       http://www.mpfr.org/mpfr-current/mpfr-${mpfr_version}.tar.bz2
-  test -d build/mpfr-${mpfr_version} || \
-      tar -C build -xjf archives/mpfr-${mpfr_version}.tar.bz2
-  cd build/mpfr-${mpfr_version} 
-  CFLAGS=-fPIE ./configure \
-      --disable-shared \
-      --prefix=${TEMP} \
-      --with-gmp=${TEMP}
-  make -j8 && make install
-) && touch stamps/lib-mpfr
-test "$?" -eq "0" || exit 1
-
-# build mpc
-test -f stamps/lib-mpc || (
-  set -e
   test -f archives/mpc-${mpc_version}.tar.gz || \
       curl -o archives/mpc-${mpc_version}.tar.gz \
       http://www.multiprecision.org/mpc/download/mpc-${mpc_version}.tar.gz
-  test -d build/mpc-${mpc_version} || \
-      tar -C build -xzf archives/mpc-${mpc_version}.tar.gz
-  cd build/mpc-${mpc_version}
-  CFLAGS=-fPIE ./configure \
-      --disable-shared \
-      --prefix=${TEMP} \
-      --with-gmp=${TEMP} \
-      --with-mpfr=${TEMP}
-  make -j8 && make install
-) && touch stamps/lib-mpc
-test "$?" -eq "0" || exit 1
-
-# build isl
-test -f stamps/lib-isl || (
-  set -e
   test -f archives/isl-${isl_version}.tar.bz2 || \
       curl -o archives/isl-${isl_version}.tar.bz2 \
       ftp://gcc.gnu.org/pub/gcc/infrastructure/isl-${isl_version}.tar.bz2
-  test -d build/isl-${isl_version} || \
-      tar -C build -xjf archives/isl-${isl_version}.tar.bz2
-  cd build/isl-${isl_version}
-  CFLAGS=-fPIE ./configure \
-      --disable-shared \
-      --prefix=${TEMP} \
-      --with-gmp-prefix=${TEMP}
-  make -j8 && make install
-) && touch stamps/lib-isl
-test "$?" -eq "0" || exit 1
-
-# build cloog
-test -f stamps/lib-cloog || (
-  set -e
   test -f archives/cloog-${cloog_version}.tar.gz || \
       curl -o archives/cloog-${cloog_version}.tar.gz \
       https://www.bastoul.net/cloog/pages/download/cloog-${cloog_version}.tar.gz
-  test -d build/cloog-${cloog_version} || \
-      tar -C build -xzf archives/cloog-${cloog_version}.tar.gz
-  cd build/cloog-${cloog_version}
-  CFLAGS=-fPIE ./configure \
-      --disable-shared \
-      --prefix=${TEMP} \
-      --with-isl-prefix=${TEMP} \
-      --with-gmp-prefix=${TEMP}
-  make -j8 && make install
-) && touch stamps/lib-cloog
-test "$?" -eq "0" || exit 1
-
-# build binutils
-test -f stamps/binutils || (
-  set -e
   test -f archives/binutils-${binutils_version}.tar.bz2 || \
       curl -o archives/binutils-${binutils_version}.tar.bz2 \
       http://ftp.gnu.org/gnu/binutils/binutils-${binutils_version}.tar.bz2
-  test -d build/binutils-${binutils_version} || \
-      tar -C build -xjf archives/binutils-${binutils_version}.tar.bz2
-  cd build/binutils-${binutils_version}
-  CFLAGS=-fPIE ./configure \
-        --prefix=${PREFIX} \
-        --target=${TARGET:=$TRIPLE} ${WITHARCH} \
-        --program-transform-name='s&^&'${TRIPLE}'-&' \
-	--with-sysroot=${SYSROOT} \
-	--disable-nls \
-	--disable-libssp \
-	--disable-shared \
-	--disable-werror  \
-        --disable-isl-version-check \
-        --disable-multilib \
-        --with-gmp=${TEMP} \
-        --with-mpfr=${TEMP} \
-        --with-mpc=${TEMP} \
-        --with-isl=${TEMP} \
-        --with-cloog=${TEMP}
-  make -j8 && make install
-) && touch stamps/binutils
-test "$?" -eq "0" || exit 1
-
-# musl headers
-test -f stamps/musl-headers || (
-  set -e
   test -f archives/musl-riscv-${musl_version}.tar.gz || \
       curl -o archives/musl-riscv-${musl_version}.tar.gz \
       https://codeload.github.com/rv8-io/musl-riscv/tar.gz/v${musl_version}
-  test -d build/musl-riscv-${musl_version} || \
-      tar -C build -xzf archives/musl-riscv-${musl_version}.tar.gz
-  cd build/musl-riscv-${musl_version}
-  test -f ../../stamps/musl-patch || (
-    patch -p0 < ../../patches/musl-stdbool-cpluscplus.patch
-    touch ../../stamps/musl-patch
-  )
-  echo prefix= > config.mak
-  echo exec_prefix= >> config.mak
-  echo ARCH=${ARCH} >> config.mak
-  echo CC=${PREFIX}/bin/${TRIPLE}-gcc >> config.mak
-  echo AS=${PREFIX}/bin/${TRIPLE}-as >> config.mak
-  echo LD=${PREFIX}/bin/${TRIPLE}-ld >> config.mak
-  make DESTDIR=${SYSROOT} install-headers
-  mkdir -p ${SYSROOT}/usr
-  test -L ${SYSROOT}/usr/lib || ln -s ../lib ${SYSROOT}/usr/lib
-  test -L ${SYSROOT}/usr/include || ln -s ../include ${SYSROOT}/usr/include
-) && touch stamps/musl-headers
-test "$?" -eq "0" || exit 1
-
-# linux headers
-test -f stamps/linux-headers || (
-  set -e
   test -f archives/linux-riscv-${linux_version}.tar.gz || \
       curl -L -o archives/linux-riscv-${linux_version}.tar.gz \
       https://github.com/rv8-io/riscv-linux/archive/linux-riscv-${linux_version}.tar.gz
-  test -d build/riscv-linux-linux-riscv-${linux_version} || \
-      tar -C build -xzf archives/linux-riscv-${linux_version}.tar.gz
-  mkdir -p build/linux-headers/staged
-  ( cd build/riscv-linux-linux-riscv-${linux_version} && \
-      make ARCH=${LINUX_ARCH} O=../linux-headers INSTALL_HDR_PATH=../linux-headers/staged headers_install )
-  find build/linux-headers/staged/include '(' -name .install -o -name ..install.cmd ')' -exec rm {} +
-  rsync -a build/linux-headers/staged/include/ ${SYSROOT}/usr/include/
-) && touch stamps/linux-headers
-test "$?" -eq "0" || exit 1
-
-# patch gcc
-test -f stamps/gcc-patch || (
-  set -e
   test -f archives/gcc-${gcc_version}.tar.xz || \
       curl -o archives/gcc-${gcc_version}.tar.xz \
       http://ftp.gnu.org/gnu/gcc/gcc-${gcc_version}/gcc-${gcc_version}.tar.xz
-  test -d build/gcc-${gcc_version} || \
-      tar -C build -xJf archives/gcc-${gcc_version}.tar.xz
-  cd build/gcc-${gcc_version}
-  patch -p0 < ../../patches/gcc-7.2-musl-dynamic-linker.patch
-  patch -p0 < ../../patches/gcc-7.2-slow-byte-access.patch
-  patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
-  touch ../../stamps/gcc-patch
-) && touch stamps/gcc-patch
-test "$?" -eq "0" || exit 1
+}
 
-# build gcc stage1a - musl static compiler
-test -f stamps/gcc-stage1a || (
-  set -e
-  cd build/gcc-${gcc_version}
-  test -d output-stage1 || mkdir output-stage1
-  cd output-stage1
-  CFLAGS=-fPIE ../configure \
-	--prefix=${PREFIX} \
+extract_archives()
+{
+  test -d src/gmp-${gmp_version} || \
+      tar -C src -xjf archives/gmp-${gmp_version}.tar.bz2
+  test -d src/mpfr-${mpfr_version} || \
+      tar -C src -xjf archives/mpfr-${mpfr_version}.tar.bz2
+  test -d src/mpc-${mpc_version} || \
+      tar -C src -xzf archives/mpc-${mpc_version}.tar.gz
+  test -d src/isl-${isl_version} || \
+      tar -C src -xjf archives/isl-${isl_version}.tar.bz2
+  test -d src/cloog-${cloog_version} || \
+      tar -C src -xzf archives/cloog-${cloog_version}.tar.gz
+  test -d src/binutils-${binutils_version} || \
+      tar -C src -xjf archives/binutils-${binutils_version}.tar.bz2
+  test -d src/musl-riscv-${musl_version} || \
+      tar -C src -xzf archives/musl-riscv-${musl_version}.tar.gz
+  test -d src/riscv-linux-linux-riscv-${linux_version} || \
+      tar -C src -xzf archives/linux-riscv-${linux_version}.tar.gz
+  test -d src/gcc-${gcc_version} || \
+      tar -C src -xJf archives/gcc-${gcc_version}.tar.xz
+}
+
+patch_musl()
+{
+  test -f src/musl-riscv-${musl_version}/.patched || (
+    set -e
+    cd src/musl-riscv-${musl_version}
+    patch -p0 < ../../patches/musl-stdbool-cpluscplus.patch
+    touch .patched
+  )
+  test "$?" -eq "0" || exit 1
+}
+
+patch_gcc()
+{
+  test -f src/gcc-${gcc_version}/.patched || (
+    set -e
+    cd src/gcc-${gcc_version}
+    patch -p0 < ../../patches/gcc-7.2-musl-dynamic-linker.patch
+    patch -p0 < ../../patches/gcc-7.2-slow-byte-access.patch
+    patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
+    touch .patched
+  )
+  test "$?" -eq "0" || exit 1
+}
+
+build_gmp()
+{
+  host=$1; shift
+  test -f stamps/lib-gmp-${host} || (
+    set -e
+    test -d build/gmp-${host} || mkdir build/gmp-${host}
+    cd build/gmp-${host}
+    CFLAGS=-fPIE ../../src/gmp-${gmp_version}/configure \
+        --disable-shared \
+        --prefix=${TOPDIR}/build/install-${host} \
+        $*
+    make -j8 && make install
+  ) && touch stamps/lib-gmp-${host}
+  test "$?" -eq "0" || exit 1
+}
+
+build_mpfr()
+{
+  host=$1; shift
+  test -f stamps/lib-mpfr-${host} || (
+    set -e
+    test -d build/mpfr-${host} || mkdir build/mpfr-${host}
+    cd build/mpfr-${host}
+    CFLAGS=-fPIE ../../src/mpfr-${mpfr_version}/configure \
+        --disable-shared \
+        --prefix=${TOPDIR}/build/install-${host} \
+        --with-gmp=${TOPDIR}/build/install-${host} \
+        $*
+    make -j8 && make install
+  ) && touch stamps/lib-mpfr-${host}
+  test "$?" -eq "0" || exit 1
+}
+
+build_mpc()
+{
+  host=$1; shift
+  test -f stamps/lib-mpc-${host} || (
+    set -e
+    test -d build/mpc-${host} || mkdir build/mpc-${host}
+    cd build/mpc-${host}
+    CFLAGS=-fPIE ../../src/mpc-${mpc_version}/configure \
+        --disable-shared \
+        --prefix=${TOPDIR}/build/install-${host} \
+        --with-gmp=${TOPDIR}/build/install-${host} \
+        --with-mpfr=${TOPDIR}/build/install-${host} \
+        $*
+    make -j8 && make install
+  ) && touch stamps/lib-mpc-${host}
+  test "$?" -eq "0" || exit 1
+}
+
+build_isl()
+{
+  host=$1; shift
+  if [ "${build_graphite}" = "yes" ]; then
+    test -f stamps/lib-isl-${host} || (
+      set -e
+      test -d build/isl-${host} || mkdir build/isl-${host}
+      cd build/isl-${host}
+      CFLAGS=-fPIE ../../src/isl-${isl_version}/configure \
+          --disable-shared \
+          --prefix=${TOPDIR}/build/install-${host} \
+          --with-gmp-prefix=${TOPDIR}/build/install-${host} \
+          $*
+      make -j8 && make install
+    ) && touch stamps/lib-isl-${host}
+    test "$?" -eq "0" || exit 1
+  fi
+}
+
+build_cloog()
+{
+  host=$1; shift
+  if [ "${build_graphite}" = "yes" ]; then
+    test -f stamps/lib-cloog-${host} || (
+      set -e
+      test -d build/cloog-${host} || mkdir build/cloog-${host}
+      cd build/cloog-${host}
+      CFLAGS=-fPIE ../../src/cloog-${cloog_version}/configure \
+          --disable-shared \
+          --prefix=${TOPDIR}/build/install-${host} \
+          --with-isl-prefix=${TOPDIR}/build/install-${host} \
+          --with-gmp-prefix=${TOPDIR}/build/install-${host} \
+          $*
+      make -j8 && make install
+    ) && touch stamps/lib-cloog-${host}
+    test "$?" -eq "0" || exit 1
+  fi
+}
+
+build_binutils()
+{
+  host=$1; shift
+  prefix=$1; shift
+  destdir=$1; shift
+  transform=$1; shift
+  test -f stamps/binutils-${host}-${ARCH} || (
+    set -e
+    test -d build/binutils-${host}-${ARCH} || mkdir build/binutils-${host}-${ARCH}
+    cd build/binutils-${host}-${ARCH}
+    CFLAGS=-fPIE ../../src/binutils-${binutils_version}/configure \
+        --prefix=${prefix} \
         --target=${TARGET:=$TRIPLE} ${WITHARCH} \
-	--program-transform-name='s&^&'${TRIPLE}'-&' \
-	--with-sysroot=${SYSROOT} \
-	--with-gnu-as \
-	--with-gnu-ld \
-	--enable-languages=c,c++ \
-	--enable-target-optspace \
-	--enable-cloog-backend=isl \
-	--enable-initfini-array \
-	--enable-shared \
-	--disable-threads \
-	--disable-libgcc \
-	--disable-libatomic \
-	--disable-tls \
-	--disable-libstdc__-v3 \
-	--disable-libquadmath \
-	--disable-libsanitizer \
-	--disable-libvtv \
-	--disable-libmpx \
-	--disable-multilib \
-	--disable-zlib \
-	--disable-libssp \
-	--disable-libmudflap \
-	--disable-libgomp \
-	--disable-libitm \
-	--disable-nls \
-	--disable-plugins \
-	--disable-sjlj-exceptions \
-	--disable-bootstrap \
-        --disable-isl-version-check \
-	--with-gmp=${TEMP} \
-	--with-mpfr=${TEMP} \
-	--with-mpc=${TEMP} \
-	--with-isl=${TEMP} \
-        --with-cloog=${TEMP}
-  make -j8 all && make install
-) && touch stamps/gcc-stage1a
-test "$?" -eq "0" || exit 1
+        ${transform:+--program-transform-name='s&^&'${TRIPLE}'-&'} \
+        --with-sysroot=${SYSROOT} \
+        --disable-nls \
+        --disable-libssp \
+        --disable-shared \
+        --disable-werror  \
+        --disable-multilib \
+        --with-gmp=${TOPDIR}/build/install-${host} \
+        --with-mpfr=${TOPDIR}/build/install-${host} \
+        --with-mpc=${TOPDIR}/build/install-${host} \
+        ${build_graphite:+--disable-isl-version-check} \
+        ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
+        ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
+        $*
+    make -j8 && make DESTDIR=${destdir} install
+  ) && touch stamps/binutils-${host}-${ARCH}
+  test "$?" -eq "0" || exit 1
+}
 
-# build musl static
-test -f stamps/musl-static || (
-  set -e
-  cd build/musl-riscv-${musl_version}
-  make -j8 lib/libc.a CFLAGS=-fPIE
-  make DESTDIR=${SYSROOT} SHARED_LIBS= install-libs
-) && touch stamps/musl-static
-test "$?" -eq "0" || exit 1
+configure_musl()
+{
+  test -f stamps/musl-config-${ARCH} || (
+    set -e
+    rsync -a src/musl-riscv-${musl_version}/ build/musl-${ARCH}/
+    cd build/musl-${ARCH}
+    echo prefix= > config.mak
+    echo exec_prefix= >> config.mak
+    echo ARCH=${ARCH} >> config.mak
+    echo CC=${PREFIX}/bin/${TRIPLE}-gcc >> config.mak
+    echo AS=${PREFIX}/bin/${TRIPLE}-as >> config.mak
+    echo LD=${PREFIX}/bin/${TRIPLE}-ld >> config.mak
+  ) && touch stamps/musl-config-${ARCH}
+  test "$?" -eq "0" || exit 1
+}
 
-# build stage1b gcc - musl dynamic compiler
-test -f stamps/gcc-stage1b || (
-  set -e
-  cd build/gcc-${gcc_version}
-  test -d output-stage1 || mkdir output-stage1
-  cd output-stage1
-  CFLAGS=-fPIE ../configure \
-	--prefix=${PREFIX} \
+install_musl_headers()
+{
+  test -f stamps/musl-headers-${ARCH} || (
+    set -e
+    cd build/musl-${ARCH}
+    make DESTDIR=${SYSROOT} install-headers
+    mkdir -p ${SYSROOT}/usr
+    test -L ${SYSROOT}/usr/lib || ln -s ../lib ${SYSROOT}/usr/lib
+    test -L ${SYSROOT}/usr/include || ln -s ../include ${SYSROOT}/usr/include
+  ) && touch stamps/musl-headers-${ARCH}
+  test "$?" -eq "0" || exit 1
+}
+
+install_linux_headers()
+{
+  test -f stamps/linux-headers-${ARCH} || (
+    set -e
+    mkdir -p build/linux-headers-${ARCH}/staged
+    ( cd src/riscv-linux-linux-riscv-${linux_version} && \
+        make ARCH=${LINUX_ARCH} O=../../build/linux-headers-${ARCH} \
+             INSTALL_HDR_PATH=../../build/linux-headers-${ARCH}/staged headers_install )
+    find build/linux-headers-${ARCH}/staged/include '(' -name .install -o -name ..install.cmd ')' -exec rm {} +
+    rsync -a build/linux-headers-${ARCH}/staged/include/ ${SYSROOT}/usr/include/
+  ) && touch stamps/linux-headers-${ARCH}
+  test "$?" -eq "0" || exit 1
+}
+
+build_gcc_stage1a()
+{
+  # musl static compiler
+  host=$1; shift
+  prefix=$1; shift
+  destdir=$1; shift
+  transform=$1; shift
+  test -f stamps/gcc-stage1a-${host}-${ARCH} || (
+    set -e
+    test -d build/gcc-stage1-${host}-${ARCH} || mkdir build/gcc-stage1-${host}-${ARCH}
+    cd build/gcc-stage1-${host}-${ARCH}
+    CFLAGS=-fPIE ../../src/gcc-${gcc_version}/configure \
+        --prefix=${prefix} \
         --target=${TARGET:=$TRIPLE} ${WITHARCH} \
-	--program-transform-name='s&^&'${TRIPLE}'-&' \
-	--with-sysroot=${SYSROOT} \
-	--with-gnu-as \
-	--with-gnu-ld \
-	--enable-languages=c,c++ \
-	--enable-target-optspace \
-	--enable-cloog-backend=isl \
-	--enable-initfini-array \
-	--enable-shared \
-	--enable-threads \
-	--enable-tls \
-	--enable-libgcc \
-	--disable-libatomic \
-	--disable-libstdc__-v3 \
-	--disable-libquadmath \
-	--disable-libsanitizer \
-	--disable-libvtv \
-	--disable-libmpx \
-	--disable-multilib \
-	--disable-zlib \
-	--disable-libssp \
-	--disable-libmudflap \
-	--disable-libgomp \
-	--disable-libitm \
-	--disable-nls \
-	--disable-plugins \
-	--disable-sjlj-exceptions \
-	--disable-bootstrap \
-        --disable-isl-version-check \
-	--with-gmp=${TEMP} \
-	--with-mpfr=${TEMP} \
-	--with-mpc=${TEMP} \
-	--with-isl=${TEMP} \
-        --with-cloog=${TEMP}
-  make -j8 all && make install
-) && touch stamps/gcc-stage1b
-test "$?" -eq "0" || exit 1
+        ${transform:+--program-transform-name='s&^&'${TRIPLE}'-&'} \
+        --with-sysroot=${SYSROOT} \
+        --with-gnu-as \
+        --with-gnu-ld \
+        --enable-languages=c,c++ \
+        --enable-target-optspace \
+        --enable-initfini-array \
+        --enable-shared \
+        --enable-zlib \
+        --disable-threads \
+        --disable-libgcc \
+        --disable-libatomic \
+        --disable-tls \
+        --disable-libstdc__-v3 \
+        --disable-libquadmath \
+        --disable-libsanitizer \
+        --disable-libvtv \
+        --disable-libmpx \
+        --disable-multilib \
+        --disable-libssp \
+        --disable-libmudflap \
+        --disable-libgomp \
+        --disable-libitm \
+        --disable-nls \
+        --disable-plugins \
+        --disable-sjlj-exceptions \
+        --disable-bootstrap \
+        --with-gmp=${TOPDIR}/build/install-${host} \
+        --with-mpfr=${TOPDIR}/build/install-${host} \
+        --with-mpc=${TOPDIR}/build/install-${host} \
+        ${build_graphite:+--disable-isl-version-check} \
+        ${build_graphite:+--enable-cloog-backend=isl} \
+        ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
+        ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
+        $*
+    make -j8 all && make DESTDIR=${destdir} install
+  ) && touch stamps/gcc-stage1a-${host}-${ARCH}
+  test "$?" -eq "0" || exit 1
+}
 
-# build musl dynamic
-test -f stamps/musl-dynamic || (
-  set -e
-  cd build/musl-riscv-${musl_version}
-  make -j8
-  make DESTDIR=${SYSROOT} install-libs
-) && touch stamps/musl-dynamic
-test "$?" -eq "0" || exit 1
+build_musl_static()
+{
+  test -f stamps/musl-static-${ARCH} || (
+    set -e
+    cd build/musl-${ARCH}
+    make -j8 lib/libc.a CFLAGS=-fPIE
+    make DESTDIR=${SYSROOT} SHARED_LIBS= install-libs
+  ) && touch stamps/musl-static-${ARCH}
+  test "$?" -eq "0" || exit 1
+}
 
-# build final gcc
-test -f stamps/gcc-final || (
-  set -e
-  cd build/gcc-${gcc_version}
-  test -d output-final || mkdir output-final
-  cd output-final
-  CFLAGS=-fPIE ../configure \
-	--prefix=${PREFIX} \
+build_gcc_stage1b()
+{
+  # musl dynamic compiler
+  host=$1; shift
+  prefix=$1; shift
+  destdir=$1; shift
+  transform=$1; shift
+  test -f stamps/gcc-stage1b-${host}-${ARCH} || (
+    set -e
+    cd build/gcc-stage1-${host}-${ARCH}
+    CFLAGS=-fPIE ../../src/gcc-${gcc_version}/configure \
+        --prefix=${prefix} \
         --target=${TARGET:=$TRIPLE} ${WITHARCH} \
-	--program-transform-name='s&^&'${TRIPLE}'-&' \
-	--with-sysroot=${SYSROOT} \
-	--with-gnu-as \
-	--with-gnu-ld \
-	--enable-languages=c,c++ \
-	--enable-target-optspace \
-	--enable-cloog-backend=isl \
-	--enable-initfini-array \
-	--enable-shared \
-	--enable-threads \
-	--enable-tls \
-	--enable-libgcc \
-	--enable-libatomic \
-	--enable-libstdc__-v3 \
-	--disable-libquadmath \
-	--disable-libsanitizer \
-	--disable-libvtv \
-	--disable-libmpx \
-	--disable-multilib \
-	--disable-zlib \
-	--disable-libssp \
-	--disable-libmudflap \
-	--disable-libgomp \
-	--disable-libitm \
-	--disable-nls \
-	--disable-plugins \
-	--disable-sjlj-exceptions \
-	--disable-bootstrap \
-        --disable-isl-version-check \
-	--with-gmp=${TEMP} \
-	--with-mpfr=${TEMP} \
-	--with-mpc=${TEMP} \
-	--with-isl=${TEMP} \
-        --with-cloog=${TEMP}
-  make -j8 all && make install
-) && touch stamps/gcc-final
-test "$?" -eq "0" || exit 1
+        ${transform:+--program-transform-name='s&^&'${TRIPLE}'-&'} \
+        --with-sysroot=${SYSROOT} \
+        --with-gnu-as \
+        --with-gnu-ld \
+        --enable-languages=c,c++ \
+        --enable-target-optspace \
+        --enable-initfini-array \
+        --enable-shared \
+        --enable-zlib \
+        --enable-threads \
+        --enable-tls \
+        --enable-libgcc \
+        --disable-libatomic \
+        --disable-libstdc__-v3 \
+        --disable-libquadmath \
+        --disable-libsanitizer \
+        --disable-libvtv \
+        --disable-libmpx \
+        --disable-multilib \
+        --disable-libssp \
+        --disable-libmudflap \
+        --disable-libgomp \
+        --disable-libitm \
+        --disable-nls \
+        --disable-plugins \
+        --disable-sjlj-exceptions \
+        --disable-bootstrap \
+        --with-gmp=${TOPDIR}/build/install-${host} \
+        --with-mpfr=${TOPDIR}/build/install-${host} \
+        --with-mpc=${TOPDIR}/build/install-${host} \
+        ${build_graphite:+--disable-isl-version-check} \
+        ${build_graphite:+--enable-cloog-backend=isl} \
+        ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
+        ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
+        $*
+    make -j8 all && make DESTDIR=${destdir} install
+  ) && touch stamps/gcc-stage1b-${host}-${ARCH}
+  test "$?" -eq "0" || exit 1
+}
+
+build_musl_dynamic()
+{
+  test -f stamps/musl-dynamic-${ARCH} || (
+    set -e
+    cd build/musl-${ARCH}
+    make -j8
+    make DESTDIR=${SYSROOT} install-libs
+  ) && touch stamps/musl-dynamic-${ARCH}
+  test "$?" -eq "0" || exit 1
+}
+
+build_gcc_stage2()
+{
+  # final compiler
+  host=$1; shift
+  prefix=$1; shift
+  destdir=$1; shift
+  transform=$1; shift
+  test -f stamps/gcc-stage2-${host}-${ARCH} || (
+    set -e
+    test -d build/gcc-stage2-${host}-${ARCH} || mkdir build/gcc-stage2-${host}-${ARCH}
+    cd build/gcc-stage2-${host}-${ARCH}
+    CFLAGS=-fPIE ../../src/gcc-${gcc_version}/configure \
+        --prefix=${prefix} \
+        --target=${TARGET:=$TRIPLE} ${WITHARCH} \
+        ${transform:+--program-transform-name='s&^&'${TRIPLE}'-&'} \
+        --with-sysroot=${SYSROOT} \
+        --with-gnu-as \
+        --with-gnu-ld \
+        --enable-languages=c,c++ \
+        --enable-target-optspace \
+        --enable-initfini-array \
+        --enable-shared \
+        --enable-zlib \
+        --enable-threads \
+        --enable-tls \
+        --enable-libgcc \
+        --enable-libatomic \
+        --enable-libstdc__-v3 \
+        --disable-libquadmath \
+        --disable-libsanitizer \
+        --disable-libvtv \
+        --disable-libmpx \
+        --disable-multilib \
+        --disable-libssp \
+        --disable-libmudflap \
+        --disable-libgomp \
+        --disable-libitm \
+        --disable-nls \
+        --disable-plugins \
+        --disable-sjlj-exceptions \
+        --disable-bootstrap \
+        --with-gmp=${TOPDIR}/build/install-${host} \
+        --with-mpfr=${TOPDIR}/build/install-${host} \
+        --with-mpc=${TOPDIR}/build/install-${host} \
+        ${build_graphite:+--disable-isl-version-check} \
+        ${build_graphite:+--enable-cloog-backend=isl} \
+        ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
+        ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
+        $*
+    make -j8 all && make DESTDIR=${destdir} install
+  ) && touch stamps/gcc-stage2-${host}-${ARCH}
+  test "$?" -eq "0" || exit 1
+}
+
+
+#
+# build musl libc toolchain for host
+#
+
+make_directories
+download_prerequisites
+extract_archives
+patch_musl
+patch_gcc
+
+build_gmp             host
+build_mpfr            host
+build_mpc             host
+build_isl             host
+build_cloog           host
+build_binutils        host ${PREFIX} / transform-name
+
+configure_musl
+install_musl_headers
+install_linux_headers
+
+build_gcc_stage1a     host ${PREFIX} / transform-name
+build_musl_static
+build_gcc_stage1b     host ${PREFIX} / transform-name
+build_musl_dynamic
+build_gcc_stage2      host ${PREFIX} / transform-name
+
+
+#
+# build musl libc toolchain for target
+#
+
+if [ "$2" = "native-cross" ]; then
+
+  export PATH=${PREFIX}/bin:${PATH}
+
+  build_gmp             ${ARCH} --host=${TRIPLE}
+  build_mpfr            ${ARCH} --host=${TRIPLE}
+  build_mpc             ${ARCH} --host=${TRIPLE}
+  build_isl             ${ARCH} --host=${TRIPLE}
+  build_cloog           ${ARCH} --host=${TRIPLE}
+  build_binutils        ${ARCH} /usr ${SYSROOT} '' --host=${TRIPLE}
+  build_gcc_stage2      ${ARCH} /usr ${SYSROOT} '' --host=${TRIPLE}
+
+fi
