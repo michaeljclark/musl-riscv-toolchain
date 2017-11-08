@@ -84,12 +84,12 @@ isl_version=0.16.1
 cloog_version=0.18.4
 binutils_version=2.28
 gcc_version=7.2.0
-musl_version=1.1.17-riscv-a5
+musl_version=1.1.18-riscv-a6
 linux_version=4.12-v7_0
 
 # bootstrap install prefix and version
 bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
-bootstrap_version=6
+bootstrap_version=7
 
 # derived variables
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
