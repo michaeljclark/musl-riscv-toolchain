@@ -317,6 +317,8 @@ configure_musl()
     echo CC=${PREFIX}/bin/${TRIPLE}-gcc >> config.mak
     echo AS=${PREFIX}/bin/${TRIPLE}-as >> config.mak
     echo LD=${PREFIX}/bin/${TRIPLE}-ld >> config.mak
+    echo AR=${PREFIX}/bin/${TRIPLE}-ar >> config.mak
+    echo RANLIB=${PREFIX}/bin/${TRIPLE}-ranlib >> config.mak
   ) && touch stamps/musl-config-${ARCH}
   test "$?" -eq "0" || exit 1
 }
