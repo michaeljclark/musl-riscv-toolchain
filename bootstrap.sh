@@ -77,19 +77,19 @@ esac
 set -e
 
 # build dependency versions
-gmp_version=6.1.0
-mpfr_version=3.1.6
+gmp_version=6.1.2
+mpfr_version=3.1.4
 mpc_version=1.0.3
 isl_version=0.16.1
 cloog_version=0.18.4
 binutils_version=2.28
 gcc_version=7.2.0
 musl_version=1.1.18-riscv-a6
-linux_version=4.12-v7_0
+linux_version=4.15
 
 # bootstrap install prefix and version
 bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
-bootstrap_version=7
+bootstrap_version=8
 
 # derived variables
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
@@ -110,13 +110,13 @@ download_prerequisites()
 {
   test -f archives/gmp-${gmp_version}.tar.bz2 || \
       curl -o archives/gmp-${gmp_version}.tar.bz2 \
-      ftp://ftp.gmplib.org/pub/gmp-${gmp_version}/gmp-${gmp_version}.tar.bz2
+      https://gmplib.org/download/gmp-${gmp_version}/gmp-${gmp_version}.tar.bz2
   test -f archives/mpfr-${mpfr_version}.tar.bz2 || \
       curl -o archives/mpfr-${mpfr_version}.tar.bz2 \
-      http://www.mpfr.org/mpfr-current/mpfr-${mpfr_version}.tar.bz2
+      https://gcc.gnu.org/pub/gcc/infrastructure/mpfr-${mpfr_version}.tar.bz2
   test -f archives/mpc-${mpc_version}.tar.gz || \
       curl -o archives/mpc-${mpc_version}.tar.gz \
-      http://www.multiprecision.org/mpc/download/mpc-${mpc_version}.tar.gz
+      https://gcc.gnu.org/pub/gcc/infrastructure/mpc-${mpc_version}.tar.gz
   test -f archives/isl-${isl_version}.tar.bz2 || \
       curl -o archives/isl-${isl_version}.tar.bz2 \
       ftp://gcc.gnu.org/pub/gcc/infrastructure/isl-${isl_version}.tar.bz2
@@ -129,9 +129,9 @@ download_prerequisites()
   test -f archives/musl-riscv-${musl_version}.tar.gz || \
       curl -o archives/musl-riscv-${musl_version}.tar.gz \
       https://codeload.github.com/rv8-io/musl-riscv/tar.gz/v${musl_version}
-  test -f archives/linux-riscv-${linux_version}.tar.gz || \
-      curl -L -o archives/linux-riscv-${linux_version}.tar.gz \
-      https://github.com/rv8-io/riscv-linux/archive/linux-riscv-${linux_version}.tar.gz
+  test -f archives/linux-${linux_version}.tar.xz || \
+      curl -L -o archives/linux-${linux_version}.tar.xz \
+      https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.15.tar.xz
   test -f archives/gcc-${gcc_version}.tar.xz || \
       curl -o archives/gcc-${gcc_version}.tar.xz \
       http://ftp.gnu.org/gnu/gcc/gcc-${gcc_version}/gcc-${gcc_version}.tar.xz
@@ -153,8 +153,8 @@ extract_archives()
       tar -C src -xjf archives/binutils-${binutils_version}.tar.bz2
   test -d src/musl-riscv-${musl_version} || \
       tar -C src -xzf archives/musl-riscv-${musl_version}.tar.gz
-  test -d src/riscv-linux-linux-riscv-${linux_version} || \
-      tar -C src -xzf archives/linux-riscv-${linux_version}.tar.gz
+  test -d src/linux-${linux_version} || \
+      tar -C src -xJf archives/linux-${linux_version}.tar.xz
   test -d src/gcc-${gcc_version} || \
       tar -C src -xJf archives/gcc-${gcc_version}.tar.xz
 }
@@ -341,7 +341,7 @@ install_linux_headers()
   test -f stamps/linux-headers-${ARCH} || (
     set -e
     mkdir -p build/linux-headers-${ARCH}/staged
-    ( cd src/riscv-linux-linux-riscv-${linux_version} && \
+    ( cd src/linux-${linux_version} && \
         make ARCH=${LINUX_ARCH} O=../../build/linux-headers-${ARCH} \
              INSTALL_HDR_PATH=../../build/linux-headers-${ARCH}/staged headers_install )
     find build/linux-headers-${ARCH}/staged/include '(' -name .install -o -name ..install.cmd ')' -exec rm {} +
