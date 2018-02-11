@@ -194,7 +194,7 @@ build_gmp()
         --disable-shared \
         --prefix=${TOPDIR}/build/install-${host} \
         $*
-    make -j8 && make install
+    make -j$(nproc) && make install
   ) && touch stamps/lib-gmp-${host}
   test "$?" -eq "0" || exit 1
 }
@@ -211,7 +211,7 @@ build_mpfr()
         --prefix=${TOPDIR}/build/install-${host} \
         --with-gmp=${TOPDIR}/build/install-${host} \
         $*
-    make -j8 && make install
+    make -j$(nproc) && make install
   ) && touch stamps/lib-mpfr-${host}
   test "$?" -eq "0" || exit 1
 }
@@ -229,7 +229,7 @@ build_mpc()
         --with-gmp=${TOPDIR}/build/install-${host} \
         --with-mpfr=${TOPDIR}/build/install-${host} \
         $*
-    make -j8 && make install
+    make -j$(nproc) && make install
   ) && touch stamps/lib-mpc-${host}
   test "$?" -eq "0" || exit 1
 }
@@ -247,7 +247,7 @@ build_isl()
           --prefix=${TOPDIR}/build/install-${host} \
           --with-gmp-prefix=${TOPDIR}/build/install-${host} \
           $*
-      make -j8 && make install
+      make -j$(nproc) && make install
     ) && touch stamps/lib-isl-${host}
     test "$?" -eq "0" || exit 1
   fi
@@ -267,7 +267,7 @@ build_cloog()
           --with-isl-prefix=${TOPDIR}/build/install-${host} \
           --with-gmp-prefix=${TOPDIR}/build/install-${host} \
           $*
-      make -j8 && make install
+      make -j$(nproc) && make install
     ) && touch stamps/lib-cloog-${host}
     test "$?" -eq "0" || exit 1
   fi
@@ -300,7 +300,7 @@ build_binutils()
         ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
         ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
         $*
-    make -j8 && make DESTDIR=${destdir} install
+    make -j$(nproc) && make DESTDIR=${destdir} install
   ) && touch stamps/binutils-${host}-${ARCH}
   test "$?" -eq "0" || exit 1
 }
@@ -399,7 +399,7 @@ build_gcc_stage1()
         ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
         ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
         $*
-    make -j8 inhibit-libc=true all-gcc all-target-libgcc
+    make -j$(nproc) inhibit-libc=true all-gcc all-target-libgcc
     make DESTDIR=${destdir} inhibit-libc=true install-gcc install-target-libgcc
   ) && touch stamps/gcc-stage1-${host}-${ARCH}
   test "$?" -eq "0" || exit 1
@@ -410,7 +410,7 @@ build_musl()
   test -f stamps/musl-dynamic-${ARCH} || (
     set -e
     cd build/musl-${ARCH}
-    make -j8
+    make -j$(nproc)
     make DESTDIR=${SYSROOT} install-libs
   ) && touch stamps/musl-dynamic-${ARCH}
   test "$?" -eq "0" || exit 1
@@ -465,7 +465,7 @@ build_gcc_stage2()
         ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
         ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
         $*
-    make -j8 all-gcc all-target-libgcc
+    make -j$(nproc) all-gcc all-target-libgcc
     make DESTDIR=${destdir} install-gcc install-target-libgcc
   ) && touch stamps/gcc-stage2-${host}-${ARCH}
   test "$?" -eq "0" || exit 1
