@@ -82,14 +82,14 @@ mpfr_version=3.1.4
 mpc_version=1.0.3
 isl_version=0.16.1
 cloog_version=0.18.4
-binutils_version=2.28
-gcc_version=7.2.0
+binutils_version=2.30
+gcc_version=7.3.0
 musl_version=1.1.18-riscv-a6
 linux_version=4.15
 
 # bootstrap install prefix and version
 bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
-bootstrap_version=8
+bootstrap_version=1
 
 # derived variables
 PREFIX=${bootstrap_prefix}-${gcc_version}-${bootstrap_version}
@@ -175,7 +175,6 @@ patch_gcc()
   test -f src/gcc-${gcc_version}/.patched || (
     set -e
     cd src/gcc-${gcc_version}
-    patch -p0 < ../../patches/gcc-7.2-musl-dynamic-linker.patch
     patch -p0 < ../../patches/gcc-7.2-slow-byte-access.patch
     patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
     touch .patched
