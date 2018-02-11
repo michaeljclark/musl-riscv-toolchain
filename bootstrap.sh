@@ -350,14 +350,14 @@ install_linux_headers()
   test "$?" -eq "0" || exit 1
 }
 
-build_gcc_stage1a()
+build_gcc_stage1()
 {
-  # musl static compiler
+  # musl compiler
   host=$1; shift
   prefix=$1; shift
   destdir=$1; shift
   transform=$1; shift
-  test -f stamps/gcc-stage1a-${host}-${ARCH} || (
+  test -f stamps/gcc-stage1-${host}-${ARCH} || (
     set -e
     test -d build/gcc-stage1-${host}-${ARCH} || mkdir build/gcc-stage1-${host}-${ARCH}
     cd build/gcc-stage1-${host}-${ARCH}
@@ -371,75 +371,11 @@ build_gcc_stage1a()
         --enable-languages=c,c++ \
         --enable-target-optspace \
         --enable-initfini-array \
-        --enable-shared \
         --enable-zlib \
-        --disable-threads \
-        --disable-libgcc \
-        --disable-libatomic \
-        --disable-tls \
-        --disable-libstdc__-v3 \
-        --disable-libquadmath \
-        --disable-libsanitizer \
-        --disable-libvtv \
-        --disable-libmpx \
-        --disable-multilib \
-        --disable-libssp \
-        --disable-libmudflap \
-        --disable-libgomp \
-        --disable-libitm \
-        --disable-nls \
-        --disable-plugins \
-        --disable-sjlj-exceptions \
-        --disable-bootstrap \
-        --with-gmp=${TOPDIR}/build/install-${host} \
-        --with-mpfr=${TOPDIR}/build/install-${host} \
-        --with-mpc=${TOPDIR}/build/install-${host} \
-        ${build_graphite:+--disable-isl-version-check} \
-        ${build_graphite:+--enable-cloog-backend=isl} \
-        ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
-        ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
-        $*
-    make -j8 all && make DESTDIR=${destdir} install
-  ) && touch stamps/gcc-stage1a-${host}-${ARCH}
-  test "$?" -eq "0" || exit 1
-}
-
-build_musl_static()
-{
-  test -f stamps/musl-static-${ARCH} || (
-    set -e
-    cd build/musl-${ARCH}
-    make -j8 lib/libc.a CFLAGS=-fPIE
-    make DESTDIR=${SYSROOT} SHARED_LIBS= install-libs
-  ) && touch stamps/musl-static-${ARCH}
-  test "$?" -eq "0" || exit 1
-}
-
-build_gcc_stage1b()
-{
-  # musl dynamic compiler
-  host=$1; shift
-  prefix=$1; shift
-  destdir=$1; shift
-  transform=$1; shift
-  test -f stamps/gcc-stage1b-${host}-${ARCH} || (
-    set -e
-    cd build/gcc-stage1-${host}-${ARCH}
-    CFLAGS=-fPIE ../../src/gcc-${gcc_version}/configure \
-        --prefix=${prefix} \
-        --target=${TARGET:=$TRIPLE} ${WITHARCH} \
-        ${transform:+--program-transform-name='s&^&'${TRIPLE}'-&'} \
-        --with-sysroot=${SYSROOT} \
-        --with-gnu-as \
-        --with-gnu-ld \
-        --enable-languages=c,c++ \
-        --enable-target-optspace \
-        --enable-initfini-array \
-        --enable-shared \
-        --enable-zlib \
-        --enable-threads \
-        --enable-tls \
         --enable-libgcc \
+        --enable-tls \
+        --disable-shared \
+        --disable-threads \
         --disable-libatomic \
         --disable-libstdc__-v3 \
         --disable-libquadmath \
@@ -463,12 +399,13 @@ build_gcc_stage1b()
         ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
         ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
         $*
-    make -j8 all && make DESTDIR=${destdir} install
-  ) && touch stamps/gcc-stage1b-${host}-${ARCH}
+    make -j8 inhibit-libc=true all-gcc all-target-libgcc
+    make DESTDIR=${destdir} inhibit-libc=true install-gcc install-target-libgcc
+  ) && touch stamps/gcc-stage1-${host}-${ARCH}
   test "$?" -eq "0" || exit 1
 }
 
-build_musl_dynamic()
+build_musl()
 {
   test -f stamps/musl-dynamic-${ARCH} || (
     set -e
@@ -500,11 +437,11 @@ build_gcc_stage2()
         --enable-languages=c,c++ \
         --enable-target-optspace \
         --enable-initfini-array \
-        --enable-shared \
         --enable-zlib \
-        --enable-threads \
-        --enable-tls \
         --enable-libgcc \
+        --enable-tls \
+        --enable-shared \
+        --enable-threads \
         --enable-libatomic \
         --enable-libstdc__-v3 \
         --disable-libquadmath \
@@ -528,7 +465,8 @@ build_gcc_stage2()
         ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
         ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
         $*
-    make -j8 all && make DESTDIR=${destdir} install
+    make -j8 all-gcc all-target-libgcc
+    make DESTDIR=${destdir} install-gcc install-target-libgcc
   ) && touch stamps/gcc-stage2-${host}-${ARCH}
   test "$?" -eq "0" || exit 1
 }
@@ -555,10 +493,8 @@ configure_musl
 install_musl_headers
 install_linux_headers
 
-build_gcc_stage1a     host ${PREFIX} / transform-name
-build_musl_static
-build_gcc_stage1b     host ${PREFIX} / transform-name
-build_musl_dynamic
+build_gcc_stage1      host ${PREFIX} / transform-name
+build_musl
 build_gcc_stage2      host ${PREFIX} / transform-name
 
 
