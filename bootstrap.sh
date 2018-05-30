@@ -464,8 +464,8 @@ build_gcc_stage2()
         ${build_graphite:+--with-isl=${TOPDIR}/build/install-${host}} \
         ${build_graphite:+--with-cloog=${TOPDIR}/build/install-${host}} \
         $*
-    make -j$(nproc) all-gcc all-target-libgcc
-    make DESTDIR=${destdir} install-gcc install-target-libgcc
+    make -j$(nproc) all-gcc all-target-libgcc all-target-libstdc++-v3
+    make DESTDIR=${destdir} install-gcc install-target-libgcc install-target-libstdc++-v3
   ) && touch stamps/gcc-stage2-${host}-${ARCH}
   test "$?" -eq "0" || exit 1
 }
