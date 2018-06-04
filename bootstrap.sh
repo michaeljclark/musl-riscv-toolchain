@@ -128,7 +128,7 @@ download_prerequisites()
       http://ftp.gnu.org/gnu/binutils/binutils-${binutils_version}.tar.bz2
   test -f archives/musl-riscv-${musl_version}.tar.gz || \
       curl -o archives/musl-riscv-${musl_version}.tar.gz \
-      https://codeload.github.com/rv8-io/musl-riscv/tar.gz/v${musl_version}
+      https://codeload.github.com/rv8-io/musl-riscv/tar.gz/${musl_version}
   test -f archives/linux-${linux_version}.tar.xz || \
       curl -L -o archives/linux-${linux_version}.tar.xz \
       https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.15.tar.xz
