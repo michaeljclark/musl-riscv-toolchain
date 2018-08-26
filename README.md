@@ -1,16 +1,17 @@
 # musl-riscv-toolchain
 
-musl-riscv-toolchain gcc 7.3 bootstrap script
+musl-riscv-toolchain gcc 8.1 bootstrap script
 
 ### Building and Installing
 
-The script automatically downloads approximately 120MiB of prerequisites:
+The script automatically downloads approximately 200MiB of prerequisites:
 
-- binutils-2.30.tar.bz2
+- binutils-2.31.1.tar.bz2
 - cloog-0.18.4.tar.gz
-- gcc-7.3.0.tar.bz2
+- gcc-8.1.0.tar.bz2
 - gmp-6.1.2.tar.bz2
 - isl-0.16.1.tar.bz2
+- linux-4.18.tar.xz
 - mpc-1.0.3.tar.gz
 - mpfr-3.1.4.tar.bz2
 - musl-riscv-1.1.18-riscv-a6.tar.gz
@@ -29,17 +30,17 @@ for i in riscv32 riscv64 i386 x86_64 arm aarch64; do sh bootstrap.sh $i ; done
 
 The script installs the toolchain to the following directory:
 
-- `/opt/riscv/musl-riscv-toolchain-7.3.0-1`
+- `/opt/riscv/musl-riscv-toolchain-8.1.0-1`
 
 Add the toolchain to your `PATH` environment variable
 
 ```
-export PATH=${PATH}:/opt/riscv/musl-riscv-toolchain-7.3.0-1/bin
+export PATH=${PATH}:/opt/riscv/musl-riscv-toolchain-8.1.0-1/bin
 ```
 
 After building, the toolchain will be installed as follows:
 
-- `/opt/riscv/musl-riscv-toolchain-7.3.0-1/`
+- `/opt/riscv/musl-riscv-toolchain-8.1.0-1/`
   - `bin/`
     - `aarch64-linux-musl-{as,ld,gcc,g++,strip,objdump}`
     - `arm-linux-musleabihf-{as,ld,gcc,g++,strip,objdump}`

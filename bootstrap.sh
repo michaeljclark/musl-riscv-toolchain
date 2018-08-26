@@ -82,10 +82,10 @@ mpfr_version=3.1.4
 mpc_version=1.0.3
 isl_version=0.16.1
 cloog_version=0.18.4
-binutils_version=2.30
-gcc_version=7.3.0
+binutils_version=2.31.1
+gcc_version=8.2.0
 musl_version=1.1.18-riscv-a6
-linux_version=4.15
+linux_version=4.18
 
 # bootstrap install prefix and version
 bootstrap_prefix=/opt/riscv/musl-riscv-toolchain
@@ -175,8 +175,7 @@ patch_gcc()
   test -f src/gcc-${gcc_version}/.patched || (
     set -e
     cd src/gcc-${gcc_version}
-    patch -p0 < ../../patches/gcc-7.2-slow-byte-access.patch
-    patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
+    #patch -p0 < ../../patches/gcc-7.1-strict-operands.patch
     touch .patched
   )
   test "$?" -eq "0" || exit 1
