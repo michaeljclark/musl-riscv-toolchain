@@ -122,7 +122,7 @@ download_prerequisites()
       ftp://gcc.gnu.org/pub/gcc/infrastructure/isl-${isl_version}.tar.bz2
   test -f archives/cloog-${cloog_version}.tar.gz || \
       curl -o archives/cloog-${cloog_version}.tar.gz \
-      https://www.bastoul.net/cloog/pages/download/cloog-${cloog_version}.tar.gz
+      http://www.bastoul.net/cloog/pages/download/cloog-${cloog_version}.tar.gz
   test -f archives/binutils-${binutils_version}.tar.bz2 || \
       curl -o archives/binutils-${binutils_version}.tar.bz2 \
       http://ftp.gnu.org/gnu/binutils/binutils-${binutils_version}.tar.bz2
